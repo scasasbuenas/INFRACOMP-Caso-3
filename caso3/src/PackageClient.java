@@ -72,11 +72,22 @@ public class PackageClient {
     public static void main(String[] args) {
         try {
             PackageClient client = new PackageClient("localhost", 1234);
-            client.sendEncryptedQuery("1234");  // Envía una consulta para el paquete con ID "1234"
-            System.out.println("Respuesta del servidor: " + client.receiveDecryptedResponse());
+            long startTime = System.currentTimeMillis();
+    
+            for (int i = 0; i < 32; i++) {
+                System.out.println("Enviando consulta #" + (i + 1));
+                client.sendEncryptedQuery("1234");  // Usa el ID del paquete "1234" para la consulta
+                String response = client.receiveDecryptedResponse();
+                System.out.println("Respuesta del servidor: " + response);
+            }
+    
+            long endTime = System.currentTimeMillis();
+            System.out.println("Tiempo total para 32 consultas: " + (endTime - startTime) + " ms");
+    
             client.close();
         } catch (Exception e) {
             System.out.println("No se pudo conectar al servidor: " + e.getMessage());
         }
     }
 }
+
