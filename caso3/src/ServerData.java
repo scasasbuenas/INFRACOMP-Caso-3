@@ -16,6 +16,16 @@ public class ServerData {
         // Datos de prueba
         packageStatus.put("1234", EN_OFICINA);
         packageStatus.put("5678", RECOGIDO);
+        packageStatus.put("9101", EN_CLASIFICACION);
+        packageStatus.put("1121", DESPACHADO);
+        packageStatus.put("3141", EN_ENTREGA);
+        packageStatus.put("5161", ENTREGADO);
+        packageStatus.put("7181", EN_OFICINA);
+        packageStatus.put("9202", RECOGIDO);
+        packageStatus.put("2232", EN_CLASIFICACION);
+        packageStatus.put("4252", DESPACHADO);
+        packageStatus.put("6272", EN_ENTREGA);
+        packageStatus.put("8292", ENTREGADO);
         // Puedes agregar más datos de prueba aquí si es necesario
     }
 

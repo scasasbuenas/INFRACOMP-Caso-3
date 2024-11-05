@@ -11,6 +11,7 @@ public class ClientHandler extends Thread {
     private ObjectInputStream in;
     private ServerData serverData;
     private PrivateKey privateKey;
+    private PublicKey clientPublicKey;  // Definimos clientPublicKey como un atributo de la clase
     private SecretKey sessionKey;
 
     public ClientHandler(Socket socket, ServerData serverData, PrivateKey privateKey) {
@@ -30,7 +31,7 @@ public class ClientHandler extends Thread {
             initializeSession();
             handleClientCommunication();
         } catch (Exception e) {
-            System.out.println("Conexión con el cliente cerrada.");
+            System.out.println("Error al manejar al cliente: " + e.getMessage());
         } finally {
             try {
                 in.close();
@@ -43,9 +44,9 @@ public class ClientHandler extends Thread {
     }
 
     private void initializeSession() throws Exception {
-        // Recibir la clave pública del cliente
+        // Recibir la clave pública del cliente y almacenarla
         System.out.println("Esperando la clave pública del cliente...");
-        PublicKey clientPublicKey = (PublicKey) in.readObject();
+        clientPublicKey = (PublicKey) in.readObject();  // Guardamos la clave pública del cliente
         System.out.println("Clave pública del cliente recibida.");
 
         // Generar la clave simétrica para la sesión
@@ -64,28 +65,46 @@ public class ClientHandler extends Thread {
 
     private void handleClientCommunication() throws Exception {
         System.out.println("Esperando consultas del cliente...");
-
+    
         while (true) {
             // Leer la solicitud encriptada del cliente
             byte[] encryptedRequest = (byte[]) in.readObject();
             System.out.println("Solicitud cifrada recibida del cliente.");
-
+    
             // Desencriptar la solicitud usando la clave de sesión
             byte[] decryptedData = CryptoUtil.decryptAES(sessionKey, encryptedRequest);
             String request = new String(decryptedData);
             System.out.println("Solicitud descifrada: " + request);
-
+    
             // Procesar la solicitud y generar una respuesta
             String response = processRequest(request);
-
-            // Cifrar la respuesta usando la clave de sesión
-            byte[] encryptedResponse = CryptoUtil.encryptAES(sessionKey, response.getBytes());
-            System.out.println("Respuesta cifrada lista para enviar al cliente.");
-
+    
+            // Medir el tiempo de cifrado simétrico (AES)
+            long startSymmetric = System.nanoTime();
+            byte[] encryptedResponseAES = CryptoUtil.encryptAES(sessionKey, response.getBytes());
+            long endSymmetric = System.nanoTime();
+            long symmetricTime = endSymmetric - startSymmetric;
+            System.out.println("Tiempo de cifrado simétrico (AES): " + symmetricTime + " ns");
+    
+            // Medir el tiempo de cifrado asimétrico (RSA)
+            long startAsymmetric = System.nanoTime();
+            byte[] encryptedResponseRSA = CryptoUtil.encryptRSA(clientPublicKey, response.getBytes());
+            long endAsymmetric = System.nanoTime();
+            long asymmetricTime = endAsymmetric - startAsymmetric;
+            System.out.println("Tiempo de cifrado asimétrico (RSA): " + asymmetricTime + " ns");
+    
+            // Crear un mensaje que incluya los tiempos de cifrado
+            String fullResponse = response + "\n" +
+                                  "Tiempo de cifrado simétrico (AES): " + symmetricTime + " ns\n" +
+                                  "Tiempo de cifrado asimétrico (RSA): " + asymmetricTime + " ns";
+    
+            // Cifrar la respuesta completa usando AES para enviar al cliente
+            byte[] finalEncryptedResponse = CryptoUtil.encryptAES(sessionKey, fullResponse.getBytes());
+            
             // Enviar la respuesta cifrada al cliente
-            out.writeObject(encryptedResponse);
+            out.writeObject(finalEncryptedResponse);
             out.flush();
-            System.out.println("Respuesta enviada al cliente.");
+            System.out.println("Respuesta completa con tiempos de cifrado enviada al cliente.");
         }
     }
 
