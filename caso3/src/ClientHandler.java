@@ -1,7 +1,9 @@
 import java.io.*;
+import java.math.BigInteger;
 import java.net.*;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.SecureRandom;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -64,47 +66,72 @@ public class ClientHandler extends Thread {
     }
 
     private void handleClientCommunication() throws Exception {
-        System.out.println("Esperando consultas del cliente...");
-    
-        while (true) {
-            // Leer la solicitud encriptada del cliente
-            byte[] encryptedRequest = (byte[]) in.readObject();
-            System.out.println("Solicitud cifrada recibida del cliente.");
-    
-            // Desencriptar la solicitud usando la clave de sesión
-            byte[] decryptedData = CryptoUtil.decryptAES(sessionKey, encryptedRequest);
-            String request = new String(decryptedData);
-            System.out.println("Solicitud descifrada: " + request);
-    
-            // Procesar la solicitud y generar una respuesta
-            String response = processRequest(request);
-    
-            // Medir el tiempo de cifrado simétrico (AES)
-            long startSymmetric = System.nanoTime();
-            byte[] encryptedResponseAES = CryptoUtil.encryptAES(sessionKey, response.getBytes());
-            long endSymmetric = System.nanoTime();
-            long symmetricTime = endSymmetric - startSymmetric;
-            System.out.println("Tiempo de cifrado simétrico (AES): " + symmetricTime + " ns");
-    
-            // Medir el tiempo de cifrado asimétrico (RSA)
-            long startAsymmetric = System.nanoTime();
-            byte[] encryptedResponseRSA = CryptoUtil.encryptRSA(clientPublicKey, response.getBytes());
-            long endAsymmetric = System.nanoTime();
-            long asymmetricTime = endAsymmetric - startAsymmetric;
-            System.out.println("Tiempo de cifrado asimétrico (RSA): " + asymmetricTime + " ns");
-    
-            // Crear un mensaje que incluya los tiempos de cifrado
-            String fullResponse = response + "\n" +
-                                  "Tiempo de cifrado simétrico (AES): " + symmetricTime + " ns\n" +
-                                  "Tiempo de cifrado asimétrico (RSA): " + asymmetricTime + " ns";
-    
-            // Cifrar la respuesta completa usando AES para enviar al cliente
-            byte[] finalEncryptedResponse = CryptoUtil.encryptAES(sessionKey, fullResponse.getBytes());
-            
-            // Enviar la respuesta cifrada al cliente
-            out.writeObject(finalEncryptedResponse);
-            out.flush();
-            System.out.println("Respuesta completa con tiempos de cifrado enviada al cliente.");
+    System.out.println("Esperando consultas del cliente...");
+
+    while (true) {
+        // Leer la solicitud encriptada del cliente
+        byte[] encryptedRequest = (byte[]) in.readObject();
+        System.out.println("Solicitud cifrada recibida del cliente.");
+
+        // Desencriptar la solicitud usando la clave de sesión
+        byte[] decryptedData = CryptoUtil.decryptAES(sessionKey, encryptedRequest);
+        String request = new String(decryptedData);
+        System.out.println("Solicitud descifrada: " + request);
+
+        // Procesar la solicitud y generar una respuesta
+        String response = processRequest(request);
+
+        // Definir valores de P y G acordes a los estándares de Diffie-Hellman
+        SecureRandom random = new SecureRandom();
+        long startG = System.nanoTime();
+        BigInteger G = BigInteger.valueOf(2); // G suele ser un pequeño generador como 2
+        long endG = System.nanoTime();
+        long gTime = endG - startG;
+        System.out.println("Tiempo de generación de G: " + gTime + " ns");
+
+        long startP = System.nanoTime();
+        BigInteger P = BigInteger.probablePrime(1024, random);  // Generación de un primo grande P
+        long endP = System.nanoTime();
+        long pTime = endP - startP;
+        System.out.println("Tiempo de generación de P: " + pTime + " ns");
+
+        // Elegir un exponente secreto `x` y calcular `G^x mod P`
+        BigInteger x = new BigInteger(1024, random); // Exponente secreto
+        long startGX = System.nanoTime();
+        BigInteger GX = G.modPow(x, P);  // Cálculo de G^x mod P
+        long endGX = System.nanoTime();
+        long gxTime = endGX - startGX;
+        System.out.println("Tiempo de cálculo de G^x: " + gxTime + " ns");
+
+        // Medir el tiempo de cifrado simétrico (AES)
+        long startSymmetric = System.nanoTime();
+        byte[] encryptedResponseAES = CryptoUtil.encryptAES(sessionKey, response.getBytes());
+        long endSymmetric = System.nanoTime();
+        long symmetricTime = endSymmetric - startSymmetric;
+        System.out.println("Tiempo de cifrado simétrico (AES): " + symmetricTime + " ns");
+
+        // Medir el tiempo de cifrado asimétrico (RSA)
+        long startAsymmetric = System.nanoTime();
+        byte[] encryptedResponseRSA = CryptoUtil.encryptRSA(clientPublicKey, response.getBytes());
+        long endAsymmetric = System.nanoTime();
+        long asymmetricTime = endAsymmetric - startAsymmetric;
+        System.out.println("Tiempo de cifrado asimétrico (RSA): " + asymmetricTime + " ns");
+
+        // Crear un mensaje que incluya los tiempos de generación de G, P, G^x y los tiempos de cifrado
+        String fullResponse = "\n--------------------\n"+ response + "\n" +
+                              "Tiempo de generación de G: " + gTime + " ns\n" +
+                              "Tiempo de generación de P: " + pTime + " ns\n" +
+                              "Tiempo de cálculo de G^x: " + gxTime + " ns\n" +
+                              "Tiempo de cifrado simétrico (AES): " + symmetricTime + " ns\n" +
+                              "Tiempo de cifrado asimétrico (RSA): " + asymmetricTime + " ns";
+
+        // Cifrar la respuesta completa usando AES para enviar al cliente
+        byte[] finalEncryptedResponse = CryptoUtil.encryptAES(sessionKey, fullResponse.getBytes());
+        
+        // Enviar la respuesta cifrada al cliente
+        out.writeObject(finalEncryptedResponse);
+        out.flush();
+        System.out.println("Respuesta completa con tiempos de generación y cifrado enviada al cliente.");
         }
     }
 

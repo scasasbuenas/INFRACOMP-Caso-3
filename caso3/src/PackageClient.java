@@ -83,6 +83,7 @@ public class PackageClient {
                 long startTime = System.currentTimeMillis();
 
                 for (int i = 0; i < 32; i++) {
+                    System.out.println("\n----------------------------------\n");
                     System.out.println("Enviando consulta #" + (i + 1) + " para el paquete ID: " + packageId);
                     client.sendEncryptedQuery(packageId);
                     String response = client.receiveDecryptedResponse();
